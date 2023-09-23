@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title>Eve Journey Planner</title>
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@materializecss/materialize@2.0.0-alpha/dist/css/materialize.min.css">
+	<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+	<script src="https://code.jquery.com/jquery-3.6.0.js"></script>
+	<script src="https://cdn.jsdelivr.net/npm/@materializecss/materialize@2.0.0-alpha/dist/js/materialize.min.js"></script>
+	<script src="wasm_exec.js"></script>
+	<script>
+	const go = new Go();
+	WebAssembly.instantiateStreaming(fetch("journey.wasm"), go.importObject).then((result) => {
+		go.run(result.instance);
+	});
+	
+	var startup = async function() {
+		var elems = document.querySelectorAll('select');
+		var instances = M.FormSelect.init(elems, {});
+		
+		try {
+			await go_refresh();
+			systems = JSON.parse(await go_systems());
+		} catch (error) {
+			alert(error);
+			return;
+		}
+		
+		var elems = document.querySelectorAll('.systems');
+		var instances = M.Autocomplete.init(elems, {
+			minLength: 0,
+			data: systems
+		});
+
+		var elems = document.querySelectorAll('#avoidsystems');
+		var instances = M.Chips.init(elems, {
+			autocompleteOptions: { data: systems },
+			autocompleteOnly: true
+		});
+		
+		$('#loading').css('display', 'none');
+		$('#loaded').css('display', 'block');
+		
+		$("#calculate").click(async function(){
+			if (M.Autocomplete.getInstance($('#fromsystem')).selectedValues.length == 0) {
+				alert('You must select a from system');
+				return;
+			}
+
+			if (M.Autocomplete.getInstance($('#tosystem')).selectedValues.length == 0) {
+				alert('You must select a to system');
+				return;
+			}
+
+			var options = {
+				fromsystem: M.Autocomplete.getInstance($('#fromsystem')).selectedValues[0],
+				tosystem: M.Autocomplete.getInstance($('#tosystem')).selectedValues[0],
+				avoidsystems: M.Chips.getInstance($('#avoidsystems')).chipsData,
+				shipsize: parseInt($('#shipsize').find(":selected").val()),
+				excludevoc: $('#excludevoc').prop('checked'),
+				excludeeol: $('#excludeeol').prop('checked'),
+				excludelowsec: $('#excludelowsec').prop('checked'),
+				excludenullsec: $('#excludenullsec').prop('checked')
+			};
+			
+			try {
+				navigation = JSON.parse(await go_navigate(JSON.stringify(options)));
+			} catch (error) {
+				alert(error);
+				return;
+			}
+			
+			$('#result').empty();
+			navigation.forEach(function(entry) {
+				var securityclass = "red lighten-2";
+				if (entry.node.security >= 0.45) {
+					securityclass = "green lighten-2";
+				} else if (entry.node.security < 0.45 && entry.node.security > 0) {
+					securityclass = "amber lighten-1";
+				}
+				var lifeclass = "";
+				if (entry.edge.lifestatus == "critical") {
+					lifeclass = "red lighten-2"
+				}
+				var massclass = "";
+				if (entry.edge.massstatus == "critical") {
+					massclass = "red lighten-2"
+				} else if (entry.edge.massstatus == "critical") {
+					massclass = "amber lighten-1"
+				}
+				if (entry.node.name == "Thera") {
+					entry.node.class = "";
+				}
+				$('#result').append("<tr><td>"+entry.node.name+"</td><td class='"+securityclass+"'>"+entry.node.security+"</td><td>"+entry.node.class+"</td>" +
+					"<td>"+entry.edge.signature+"</td><td>"+entry.edge.jumpmass+"</td><td class='"+lifeclass+"'>"+entry.edge.lifestatus+"</td>" + 
+					"<td class='"+massclass+"'>"+entry.edge.massstatus+"</td></tr>");
+			});
+		});
+		
+		$("#refresh").click(async function(){
+			$(".btn").addClass('disabled');
+			try {
+				await go_refresh();
+			} catch (error) {
+				alert(error);
+			}
+			$(".btn").removeClass('disabled');
+		});
+	};
+	</script>
+</head>
+<body>
+<div id="loading" style="margin: 20px;"><h4>Loading ...</h4></div>
+<div id="loaded" class="container" style="display: none;">
+	<h3>Eve Journey Planner</h3>
+	<div class="row">
+		<div class="input-field col s6"><i class="material-icons prefix">flight_takeoff</i><input type="text" id="fromsystem" class="systems"><label>From System:</label></div>
+		<div class="input-field col s6"><i class="material-icons prefix">flight_land</i><input type="text" id="tosystem" class="systems"><label>To System:</label></div>
+	</div>
+	<div><label>Avoid Systems: </label><div id="avoidsystems"></div></div>
+	<div class="input-field col s12">
+		<select id="shipsize">
+			<option value="5">Small (Destroyer and smaller)</option>
+			<option value="62">Medium (Battlecruiser and smaller)</option>
+			<option value="375">Large (Battleship and smaller)</option>
+			<option value="1000">Very Large (larger than Battleship)</option>
+		</select>
+		<label>Ship Size:</label>
+	</div>
+	<div style="height: 20px;"></div>
+	<div class="switch" style="margin-top: 10px;"><label><input type="checkbox" id="excludevoc"><span class="lever"></span>Exclude VOC</label></div>
+	<div class="switch" style="margin-top: 10px;"><label><input type="checkbox" id="excludeeol"><span class="lever"></span>Exclude EOL</label></div>
+	<div class="switch" style="margin-top: 10px;"><label><input type="checkbox" id="excludelowsec"><span class="lever"></span>Exclude Low-sec</label></div>
+	<div class="switch" style="margin-top: 10px;"><label><input type="checkbox" id="excludenullsec"><span class="lever"></span>Exclude Null-sec</label></div>
+	<div style="margin-top: 20px;">
+		<a class="waves-effect waves-light btn" id="calculate"><i class="material-icons left">route</i>Calculate Path</a>
+		<a class="waves-effect waves-light btn" id="refresh"><i class="material-icons left">sync</i>Refresh Data</a>
+	</div>
+	<div>
+		<table>
+			<thead>
+				<tr>
+					<th>System</th>
+					<th>Security</th>
+					<th>Class</th>
+					<th>Signature</th>
+					<th>Jump Mass</th>
+					<th>Life Status</th>
+					<th>Mass Status</th>
+				</tr>
+			</thead>
+			<tbody id="result">
+			</tbody>
+		</table>
+	</div>
+</div>
+</body>
+</html>
