@@ -72,6 +72,7 @@ type Node struct {
 	Name     string  `json:"name"`
 	Security float64 `json:"security"`
 	Class    string  `json:"class"`
+	SystemId int64   `json:"systemid"`
 }
 
 type EdgeKey struct {
@@ -197,7 +198,7 @@ func RefreshGraph() (*FullGraph, error) {
 		}
 
 		fullgraph.Graph.AddNode(simple.Node(systemId))
-		fullgraph.Nodes[systemId] = Node{system.Name, security, system.Class}
+		fullgraph.Nodes[systemId] = Node{system.Name, security, system.Class, systemId}
 		fullgraph.NodeLookup[system.Name] = systemId
 	}
 

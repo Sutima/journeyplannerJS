@@ -70,6 +70,8 @@
 				return;
 			}
 			
+			var systemlist = [];
+			
 			$('#result').empty();
 			navigation.forEach(function(entry) {
 				var securityclass = "red lighten-2";
@@ -85,15 +87,38 @@
 				var massclass = "";
 				if (entry.edge.massstatus == "critical") {
 					massclass = "red lighten-2"
-				} else if (entry.edge.massstatus == "critical") {
+				} else if (entry.edge.massstatus == "destab") {
 					massclass = "amber lighten-1"
 				}
 				if (entry.node.name == "Thera") {
 					entry.node.class = "";
 				}
-				$('#result').append("<tr><td>"+entry.node.name+"</td><td class='"+securityclass+"'>"+entry.node.security+"</td><td>"+entry.node.class+"</td>" +
-					"<td>"+entry.edge.signature+"</td><td>"+entry.edge.jumpmass+"</td><td class='"+lifeclass+"'>"+entry.edge.lifestatus+"</td>" + 
-					"<td class='"+massclass+"'>"+entry.edge.massstatus+"</td></tr>");
+				if (entry.edge.lifestatus == "critical") {
+					entry.edge.lifestatus = "end of life";
+				}
+				$('#result').append(
+					"<tr>" +
+					"<td>"+entry.node.name+"</td>" +
+					"<td class='"+securityclass+"'>"+entry.node.security+"</td>" +
+					"<td>"+entry.node.class+"</td>" +
+					"<td>"+entry.edge.signature+"</td>" +
+					"<td class='"+lifeclass+"'>"+entry.edge.lifestatus+"</td>" + 
+					"<td class='"+massclass+"'>"+entry.edge.massstatus+"</td>" +
+					"<td>"+entry.edge.jumpmass+"</td>" +
+					"<td id='kills-"+entry.node.systemid+"'></td>"+
+					"</tr>");
+				
+				systemlist.push(entry.node.systemid);
+			});
+			
+			const url = 'https://corsproxy.io/?' + encodeURIComponent('https://eve-gatecheck.space/eve/get_kills.php?systems=' + systemlist.join(','));
+			$.getJSON(url, function(data) {
+				systemlist.forEach(function(systemid) {
+					if (typeof(data[systemid]) !== "undefined") {
+						$('#kills-'+systemid).html(data[systemid].kills.killCount + " (" + data[systemid].kills.gateKillCount + " on gate)");
+						$('#kills-'+systemid).addClass('red').addClass('lighten-2');
+					}
+				});
 			});
 		});
 		
@@ -144,15 +169,17 @@
 					<th>Security</th>
 					<th>Class</th>
 					<th>Signature</th>
-					<th>Jump Mass</th>
 					<th>Life Status</th>
 					<th>Mass Status</th>
+					<th>Jumpable Mass</th>
+					<th>Kills (1 hr)</th>
 				</tr>
 			</thead>
 			<tbody id="result">
 			</tbody>
 		</table>
 	</div>
+	<div style="height: 80px;">&nbsp;</div>
 </div>
 </body>
 </html>
