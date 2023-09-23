@@ -71,6 +71,9 @@
 			}
 			
 			var systemlist = [];
+			var routestring = "";
+			var lastsignature = "";
+			var lastsystem = "";
 			
 			$('#result').empty();
 			navigation.forEach(function(entry) {
@@ -98,7 +101,7 @@
 				}
 				$('#result').append(
 					"<tr>" +
-					"<td>"+entry.node.name+"</td>" +
+					"<td><a href='https://zkillboard.com/system/"+entry.node.systemid+"/' target='_blank'>"+entry.node.name+"</a></td>" +
 					"<td class='"+securityclass+"'>"+entry.node.security+"</td>" +
 					"<td>"+entry.node.class+"</td>" +
 					"<td>"+entry.edge.signature+"</td>" +
@@ -109,7 +112,22 @@
 					"</tr>");
 				
 				systemlist.push(entry.node.systemid);
+				
+				if (entry.edge.signature != '') {
+					if (lastsystem != '' && lastsignature == '') {
+						routestring += ' > ' + lastsystem;
+					}
+					routestring += " > " + entry.edge.signature;
+					if (entry.node.name == 'Thera') {
+					 routestring += ' (Thera)';
+					}
+				}
+				lastsystem = entry.node.name;
+				lastsignature = entry.edge.signature;
 			});
+			
+			routestring += " > " + lastsystem;
+			$('#pastable').val(routestring);
 			
 			const url = 'https://corsproxy.io/?' + encodeURIComponent('https://eve-gatecheck.space/eve/get_kills.php?systems=' + systemlist.join(','));
 			$.getJSON(url, function(data) {
@@ -145,9 +163,9 @@
 	<div><label>Avoid Systems: </label><div id="avoidsystems"></div></div>
 	<div class="input-field col s12">
 		<select id="shipsize">
-			<option value="5">Small (Destroyer and smaller)</option>
-			<option value="62">Medium (Battlecruiser and smaller)</option>
-			<option value="375">Large (Battleship and smaller)</option>
+			<option value="1">Small (Destroyer and smaller)</option>
+			<option value="19" selected="selected">Medium (Battlecruiser and smaller)</option>
+			<option value="220">Large (Battleship and smaller)</option>
 			<option value="1000">Very Large (larger than Battleship)</option>
 		</select>
 		<label>Ship Size:</label>
@@ -161,6 +179,9 @@
 		<a class="waves-effect waves-light btn" id="calculate"><i class="material-icons left">route</i>Calculate Path</a>
 		<a class="waves-effect waves-light btn" id="refresh"><i class="material-icons left">sync</i>Refresh Data</a>
 	</div>
+	<div style="height: 20px;"></div>
+	<div class="input-field col s12"><input type="text" id="pastable"><label>Pastable Route: </label></div>
+	<div style="height: 20px;"></div>
 	<div>
 		<table>
 			<thead>
