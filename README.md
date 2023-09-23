@@ -1,6 +1,6 @@
-# README #
+# Journey Planner #
 
-Journey Planner can calculate the fastest route between two systems in Eve using data from Tripwire (wormhole connections) and Eve Scout (Thera connections).
+Journey Planner can calculate the fastest route between two systems in Eve Online using data from Tripwire (wormhole connections) and Eve Scout (Thera connections).
 
 ### Compiling
 
