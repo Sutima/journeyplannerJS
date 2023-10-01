@@ -23,6 +23,7 @@
 			systems = JSON.parse(await go_systems());
 		} catch (error) {
 			alert(error);
+			window.location.href = '/index.php';
 			return;
 		}
 		
