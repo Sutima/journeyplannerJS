@@ -25,12 +25,19 @@
 			systems = JSON.parse(await go_systems());
 		} catch (error) {
 			alert(error);
-			window.location.href = '/index.php';
 			return;
 		}
 		
 		M.Autocomplete.init(document.querySelectorAll('.systems'), {
-			minLength: 0,
+			minLength: 1,
+			onSearch: function(text, autocomplete) {
+				setTimeout(() => {
+					const filteredData = systems.filter(system => {
+						return system['text'] != 'No System Name' && system['text'].toLowerCase().indexOf(text.toLowerCase()) >= 0;
+					}).splice(0, 5);
+					autocomplete.setMenuItems(filteredData);
+				}, 500);
+			},
 			data: systems
 		});
 		
@@ -140,6 +147,8 @@
 			routestring += " > " + lastsystem;
 			$('#pastable').val(routestring);
 			
+			$('#jumps').html(systemlist.length);
+			
 			const url = 'https://corsproxy.io/?' + encodeURIComponent('https://eve-gatecheck.space/eve/get_kills.php?systems=' + systemlist.join(','));
 			$.getJSON(url, function(data) {
 				systemlist.forEach(function(systemid) {
@@ -190,9 +199,11 @@
 		<a class="waves-effect waves-light btn" id="calculate"><i class="material-icons left">route</i>Calculate Path</a>
 		<a class="waves-effect waves-light btn" id="refresh"><i class="material-icons left">sync</i>Refresh Data</a>
 	</div>
-	<div style="height: 20px;"></div>
+	<div style="height: 15px;"></div>
+	<div class="input-field col s12"><b>Jumps:</b> <span id="jumps"></span></div>
+	<div style="height: 15px;"></div>
 	<div class="input-field col s12"><input type="text" id="pastable"><label>Pastable Route: </label></div>
-	<div style="height: 20px;"></div>
+	<div style="height: 15px;"></div>
 	<div>
 		<table>
 			<thead>
