@@ -99,10 +99,10 @@
 		const urlParams = new URLSearchParams(window.location.search);
 		systems.forEach(function(system) {
 			if (system['text'] == urlParams.get('from')) {
-				M.Autocomplete.getInstance($('#fromsystem')).setValues([system]);
+				M.Autocomplete.getInstance(document.getElementById('fromsystem')).setValues([system]);
 			}
 			if (system['text'] == urlParams.get('to')) {
-				M.Autocomplete.getInstance($('#tosystem')).setValues([system]);
+				M.Autocomplete.getInstance(document.getElementById('tosystem')).setValues([system]);
 			}
 		});
 		
