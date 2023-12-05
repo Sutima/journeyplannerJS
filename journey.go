@@ -8,8 +8,8 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 	"syscall/js"
+	"time"
 
 	"gonum.org/v1/gonum/graph/path"
 	"gonum.org/v1/gonum/graph/simple"
@@ -54,18 +54,12 @@ type DataWh struct {
 	Signature map[string]Signature `json:"signatures"`
 }
 
-type TheraWormholeType struct {
-	JumpMass int64 `json:"jumpMass"`
-}
-
 type TheraWormhole struct {
-	SignatureId                      string            `json:"signatureId"`
-	WormholeDestinationSignatureId   string            `json:"wormholeDestinationSignatureId"`
-	SolarSystemId                    int64             `json:"solarSystemId"`
-	WormholeDestinationSolarSystemId int64             `json:"wormholeDestinationSolarSystemId"`
-	WormholeMass                     string            `json:"wormholeMass"`
-	WormholeEol                      string            `json:"wormholeEol"`
-	SourceWormholeType               TheraWormholeType `json:"sourceWormholeType"`
+	OutSystemId    int64  `json:"out_system_id"`
+	OutSignature   string `json:"out_signature"`
+	InSystemId     int64  `json:"in_system_id"`
+	InSignature    string `json:"in_signature"`
+	RemainingHours int64  `json:"remaining_hours"`
 }
 
 type Node struct {
@@ -88,7 +82,7 @@ type Edge struct {
 }
 
 type FullGraph struct {
-	Graph      *simple.UndirectedGraph
+	Graph      *simple.DirectedGraph
 	Nodes      map[int64]Node
 	Edges      map[EdgeKey]Edge
 	NodeLookup map[string]int64
@@ -116,12 +110,12 @@ type Options struct {
 }
 
 func NewFullGraph() *FullGraph {
-	fullgraph := &FullGraph{simple.NewUndirectedGraph(), make(map[int64]Node), make(map[EdgeKey]Edge), make(map[string]int64)}
+	fullgraph := &FullGraph{simple.NewDirectedGraph(), make(map[int64]Node), make(map[EdgeKey]Edge), make(map[string]int64)}
 	return fullgraph
 }
 
 func CopyFullGraph(original *FullGraph) *FullGraph {
-	fullgraph := &FullGraph{simple.NewUndirectedGraph(), original.Nodes, original.Edges, original.NodeLookup}
+	fullgraph := &FullGraph{simple.NewDirectedGraph(), original.Nodes, original.Edges, original.NodeLookup}
 	for systemId := range original.Nodes {
 		fullgraph.Graph.AddNode(simple.Node(systemId))
 	}
@@ -220,7 +214,6 @@ func RefreshGraph() (*FullGraph, error) {
 			toSystemId += 30000000
 			fullgraph.Graph.SetEdge(simple.Edge{F: simple.Node(fromSystemId), T: simple.Node(toSystemId)})
 			fullgraph.Edges[EdgeKey{fromSystemId, toSystemId}] = Edge{"", 9999, "stable", "stable"}
-			fullgraph.Edges[EdgeKey{toSystemId, fromSystemId}] = Edge{"", 9999, "stable", "stable"}
 		}
 	}
 
@@ -337,7 +330,7 @@ func RefreshGraph() (*FullGraph, error) {
 	 Download Eve-Scout Thera wormhole data
 	****************************************/
 
-	bytes, err = HttpRequest(client, http.MethodGet, "https://corsproxy.io/?" + url.QueryEscape("https://www.eve-scout.com/api/wormholes"), nil)
+	bytes, err = HttpRequest(client, http.MethodGet, "https://corsproxy.io/?"+url.QueryEscape("https://api.eve-scout.com/v2/public/signatures"), nil)
 	if err != nil {
 		return nil, errors.New("Failed to download the eve-scout data - " + err.Error())
 	}
@@ -354,14 +347,19 @@ func RefreshGraph() (*FullGraph, error) {
 	****************/
 
 	for _, theraWormhole := range dataThera {
-		fromSignature := theraWormhole.SignatureId
-		toSignature := theraWormhole.WormholeDestinationSignatureId
-		fromSystemId := theraWormhole.SolarSystemId
-		toSystemId := theraWormhole.WormholeDestinationSolarSystemId
+		fromSignature := theraWormhole.InSignature[:3]
+		toSignature := theraWormhole.OutSignature[:3]
+		fromSystemId := theraWormhole.InSystemId
+		toSystemId := theraWormhole.OutSystemId
+
+		eol := "stable"
+		if theraWormhole.RemainingHours <= 4 {
+			eol = "critical"
+		}
 
 		fullgraph.Graph.SetEdge(simple.Edge{F: simple.Node(fromSystemId), T: simple.Node(toSystemId)})
-		fullgraph.Edges[EdgeKey{fromSystemId, toSystemId}] = Edge{fromSignature, theraWormhole.SourceWormholeType.JumpMass, theraWormhole.WormholeEol, theraWormhole.WormholeMass}
-		fullgraph.Edges[EdgeKey{toSystemId, fromSystemId}] = Edge{toSignature, theraWormhole.SourceWormholeType.JumpMass, theraWormhole.WormholeEol, theraWormhole.WormholeMass}
+		fullgraph.Edges[EdgeKey{fromSystemId, toSystemId}] = Edge{fromSignature, 9999, eol, "stable"}
+		fullgraph.Edges[EdgeKey{toSystemId, fromSystemId}] = Edge{toSignature, 9999, eol, "stable"}
 	}
 
 	/*********
@@ -453,63 +451,63 @@ func ShortestPath(original *FullGraph, options Options) ([]PathEntry, error) {
 func main() {
 	var fullgraph *FullGraph = nil
 	var systems []SystemEntry = nil
-	
+
 	func_refresh := js.FuncOf(func(this js.Value, args []js.Value) any {
 		handler := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			resolve := args[0]
 			reject := args[1]
-			
+
 			go func() {
 				var err error = nil
 				var newfullgraph *FullGraph
 				var newsystems []SystemEntry
-				
+
 				if err == nil {
 					newfullgraph, err = RefreshGraph()
 				}
-				
+
 				if err == nil {
 					newsystems = make([]SystemEntry, 0, 500)
 					for systemId, node := range newfullgraph.Nodes {
 						newsystems = append(newsystems, SystemEntry{systemId, node.Name})
 					}
 				}
-				
+
 				if err == nil {
 					fullgraph = newfullgraph
 					systems = newsystems
 				}
-				
+
 				if err == nil {
-					resolve.Invoke("Done!");
+					resolve.Invoke("Done!")
 				} else {
 					errorConstructor := js.Global().Get("Error")
 					errorObject := errorConstructor.New(err.Error())
 					reject.Invoke(errorObject)
 				}
 			}()
-			
+
 			return nil
 		})
-		
+
 		promiseConstructor := js.Global().Get("Promise")
 		return promiseConstructor.New(handler)
 	})
-	
+
 	func_systems := js.FuncOf(func(this js.Value, args []js.Value) any {
 		handler := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			resolve := args[0]
 			reject := args[1]
-			
+
 			go func() {
 				var err error = nil
 				var builder *strings.Builder
-				
+
 				if err == nil {
 					builder = new(strings.Builder)
 					err = json.NewEncoder(builder).Encode(systems)
 				}
-				
+
 				if err == nil {
 					resolve.Invoke(builder.String())
 				} else {
@@ -518,33 +516,33 @@ func main() {
 					reject.Invoke(errorObject)
 				}
 			}()
-			
+
 			return nil
 		})
-		
+
 		promiseConstructor := js.Global().Get("Promise")
 		return promiseConstructor.New(handler)
 	})
-	
+
 	func_navigate := js.FuncOf(func(this js.Value, args []js.Value) any {
 		rawoptions := args[0].String()
-		
+
 		handler := js.FuncOf(func(this js.Value, args []js.Value) interface{} {
 			resolve := args[0]
 			reject := args[1]
-			
+
 			go func() {
 				var err error = nil
 				var options Options
 				var path []PathEntry
 				var reader *strings.Reader
 				var builder *strings.Builder
-				
+
 				if err == nil {
 					reader = strings.NewReader(rawoptions)
 					err = json.NewDecoder(reader).Decode(&options)
 				}
-				
+
 				if err == nil {
 					path, err = ShortestPath(fullgraph, options)
 				}
@@ -553,7 +551,7 @@ func main() {
 					builder = new(strings.Builder)
 					err = json.NewEncoder(builder).Encode(path)
 				}
-				
+
 				if err == nil {
 					resolve.Invoke(builder.String())
 				} else {
@@ -562,19 +560,19 @@ func main() {
 					reject.Invoke(errorObject)
 				}
 			}()
-			
+
 			return nil
 		})
-		
+
 		promiseConstructor := js.Global().Get("Promise")
 		return promiseConstructor.New(handler)
 	})
-	
+
 	js.Global().Set("go_systems", func_systems)
 	js.Global().Set("go_navigate", func_navigate)
 	js.Global().Set("go_refresh", func_refresh)
 	js.Global().Call("startup")
-	
+
 	// Never return (required for WASM)
 	done := make(chan struct{}, 0)
 	<-done
