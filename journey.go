@@ -60,6 +60,7 @@ type TheraWormhole struct {
 	InSystemId     int64  `json:"in_system_id"`
 	InSignature    string `json:"in_signature"`
 	RemainingHours int64  `json:"remaining_hours"`
+	WhType         string `json:"wh_type"`
 }
 
 type Node struct {
@@ -357,9 +358,15 @@ func RefreshGraph() (*FullGraph, error) {
 			eol = "critical"
 		}
 
+		var jumpMass int64 = 9999
+		wormholeRef, ok := dataRef.Wormholes[theraWormhole.WhType]
+		if ok {
+			jumpMass = wormholeRef.Jump / 1000000
+		}
+
 		fullgraph.Graph.SetEdge(simple.Edge{F: simple.Node(fromSystemId), T: simple.Node(toSystemId)})
-		fullgraph.Edges[EdgeKey{fromSystemId, toSystemId}] = Edge{fromSignature, 9999, eol, "stable"}
-		fullgraph.Edges[EdgeKey{toSystemId, fromSystemId}] = Edge{toSignature, 9999, eol, "stable"}
+		fullgraph.Edges[EdgeKey{fromSystemId, toSystemId}] = Edge{fromSignature, jumpMass, eol, "stable"}
+		fullgraph.Edges[EdgeKey{toSystemId, fromSystemId}] = Edge{toSignature, jumpMass, eol, "stable"}
 	}
 
 	/*********
