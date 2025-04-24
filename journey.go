@@ -15,10 +15,70 @@ import (
 	"gonum.org/v1/gonum/graph/simple"
 )
 
+type Class string
+
+func (c *Class) UnmarshalJSON(data []byte) error {
+	// Try to unmarshal as a string
+	var str string
+	if err := json.Unmarshal(data, &str); err == nil {
+		*c = Class(str)
+		return nil
+	}
+
+	// Try to unmarshal as a number and convert to string
+	var num float64
+	if err := json.Unmarshal(data, &num); err == nil {
+		*c = Class(strconv.FormatFloat(num, 'f', -1, 64))
+		return nil
+	}
+
+	return errors.New("invalid class type")
+}
+
+type SystemID string
+
+func (s *SystemID) UnmarshalJSON(data []byte) error {
+	// Try to unmarshal as a string
+	var str string
+	if err := json.Unmarshal(data, &str); err == nil {
+		*s = SystemID(str)
+		return nil
+	}
+
+	// Try to unmarshal as a number and convert to string
+	var num float64
+	if err := json.Unmarshal(data, &num); err == nil {
+		*s = SystemID(strconv.FormatFloat(num, 'f', -1, 64))
+		return nil
+	}
+
+	return errors.New("invalid systemID type")
+}
+
+type WormholeID string
+
+func (w *WormholeID) UnmarshalJSON(data []byte) error {
+	// Try to unmarshal as a string
+	var str string
+	if err := json.Unmarshal(data, &str); err == nil {
+		*w = WormholeID(str)
+		return nil
+	}
+
+	// Try to unmarshal as a number and convert to string
+	var num float64
+	if err := json.Unmarshal(data, &num); err == nil {
+		*w = WormholeID(strconv.FormatFloat(num, 'f', -1, 64))
+		return nil
+	}
+
+	return errors.New("invalid WormholeID type")
+}
+
 type System struct {
 	Name     string `json:"name"`
 	Security string `json:"security"`
-	Class    string `json:"class"`
+	Class    Class  `json:"class"`
 }
 
 type MapStruct struct {
@@ -36,17 +96,17 @@ type DataRef struct {
 }
 
 type Wormhole struct {
-	Life        string `json:"life"`
-	Mass        string `json:"mass"`
-	Type        string `json:"type"`
-	InitialID   string `json:"initialID"`
-	SecondaryID string `json:"secondaryID"`
+	Life        string     `json:"life"`
+	Mass        string     `json:"mass"`
+	Type        string     `json:"type"`
+	InitialID   WormholeID `json:"initialID"`
+	SecondaryID WormholeID `json:"secondaryID"`
 }
 
 type Signature struct {
-	SignatureID string `json:"signatureID"`
-	SystemID    string `json:"systemID"`
-	LifeTime    string `json:"lifeTime"`
+	SignatureID string   `json:"signatureID"`
+	SystemID    SystemID `json:"systemID"`
+	LifeTime    string   `json:"lifeTime"`
 }
 
 type DataWh struct {
@@ -193,7 +253,7 @@ func RefreshGraph() (*FullGraph, error) {
 		}
 
 		fullgraph.Graph.AddNode(simple.Node(systemId))
-		fullgraph.Nodes[systemId] = Node{system.Name, security, system.Class, systemId}
+		fullgraph.Nodes[systemId] = Node{system.Name, security, string(system.Class), systemId}
 		fullgraph.NodeLookup[system.Name] = systemId
 	}
 
@@ -242,12 +302,12 @@ func RefreshGraph() (*FullGraph, error) {
 	****************************/
 
 	for _, wormhole := range dataWh.Wormholes {
-		fromSignatureData, ok := dataWh.Signature[wormhole.InitialID]
+		fromSignatureData, ok := dataWh.Signature[string(wormhole.InitialID)]
 		if !ok {
 			continue
 		}
 
-		toSignatureData, ok := dataWh.Signature[wormhole.SecondaryID]
+		toSignatureData, ok := dataWh.Signature[string(wormhole.SecondaryID)]
 		if !ok {
 			continue
 		}
@@ -271,20 +331,20 @@ func RefreshGraph() (*FullGraph, error) {
 			continue
 		}
 
-		if _, ok := dataRef.Systems[fromSignatureData.SystemID]; !ok {
+		if _, ok := dataRef.Systems[string(fromSignatureData.SystemID)]; !ok {
 			continue
 		}
 
-		if _, ok := dataRef.Systems[toSignatureData.SystemID]; !ok {
+		if _, ok := dataRef.Systems[string(toSignatureData.SystemID)]; !ok {
 			continue
 		}
 
-		fromSystemId, err := strconv.ParseInt(fromSignatureData.SystemID, 10, 64)
+		fromSystemId, err := strconv.ParseInt(string(fromSignatureData.SystemID), 10, 64)
 		if err != nil {
 			continue
 		}
 
-		toSystemId, err := strconv.ParseInt(toSignatureData.SystemID, 10, 64)
+		toSystemId, err := strconv.ParseInt(string(toSignatureData.SystemID), 10, 64)
 		if err != nil {
 			continue
 		}
@@ -331,7 +391,7 @@ func RefreshGraph() (*FullGraph, error) {
 	 Download Eve-Scout Thera wormhole data
 	****************************************/
 
-	bytes, err = HttpRequest(client, http.MethodGet, "https://corsproxy.io/?"+url.QueryEscape("https://api.eve-scout.com/v2/public/signatures"), nil)
+	bytes, err = HttpRequest(client, http.MethodGet, "https://api.eve-scout.com/v2/public/signatures", nil)
 	if err != nil {
 		return nil, errors.New("Failed to download the eve-scout data - " + err.Error())
 	}
