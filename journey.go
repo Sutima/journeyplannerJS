@@ -168,6 +168,7 @@ type Options struct {
 	ExcludeEOL     bool          `json:"excludeeol"`
 	ExcludeLowSec  bool          `json:"excludelowsec"`
 	ExcludeNullSec bool          `json:"excludenullsec"`
+	ExcludeThera   bool          `json:"excludethera"`
 }
 
 func NewFullGraph() *FullGraph {
@@ -212,7 +213,7 @@ func HttpRequest(client *http.Client, method string, url string, data url.Values
 	return bytes, nil
 }
 
-func RefreshGraph() (*FullGraph, error) {
+func RefreshGraph(options Options) (*FullGraph, error) {
 	fullgraph := NewFullGraph()
 
 	client := &http.Client{
@@ -408,6 +409,10 @@ func RefreshGraph() (*FullGraph, error) {
 	****************/
 
 	for _, theraWormhole := range dataThera {
+		if options.ExcludeThera {
+			continue // Skip adding Thera/Eve-Scout connections
+		}
+
 		fromSignature := theraWormhole.InSignature[:3]
 		toSignature := theraWormhole.OutSignature[:3]
 		fromSystemId := theraWormhole.InSystemId
@@ -516,7 +521,6 @@ func ShortestPath(original *FullGraph, options Options) ([]PathEntry, error) {
 }
 
 func main() {
-	var fullgraph *FullGraph = nil
 	var systems []SystemEntry = nil
 
 	func_refresh := js.FuncOf(func(this js.Value, args []js.Value) any {
@@ -530,7 +534,7 @@ func main() {
 				var newsystems []SystemEntry
 
 				if err == nil {
-					newfullgraph, err = RefreshGraph()
+					newfullgraph, err = RefreshGraph(Options{})
 				}
 
 				if err == nil {
@@ -541,7 +545,6 @@ func main() {
 				}
 
 				if err == nil {
-					fullgraph = newfullgraph
 					systems = newsystems
 				}
 
@@ -604,6 +607,7 @@ func main() {
 				var path []PathEntry
 				var reader *strings.Reader
 				var builder *strings.Builder
+				var newfullgraph *FullGraph
 
 				if err == nil {
 					reader = strings.NewReader(rawoptions)
@@ -611,7 +615,11 @@ func main() {
 				}
 
 				if err == nil {
-					path, err = ShortestPath(fullgraph, options)
+					newfullgraph, err = RefreshGraph(options)
+				}
+
+				if err == nil {
+					path, err = ShortestPath(newfullgraph, options)
 				}
 
 				if err == nil {

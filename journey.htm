@@ -78,6 +78,9 @@
 			return;
 		}
 		
+		
+		const zarzakhSystem = systems.find(s => s.text === "Zarzakh");
+		
 		var autocompleteoptions = {
 			minLength: 1,
 			onSearch: function(text, autocomplete) {
@@ -125,15 +128,24 @@
 				return;
 			}
 
+			// Get chips data from the UI
+			let avoidList = avoidsystems.chipsData.slice(); // clone the array
+
+			// Toggle Zarzakh avoidance based on the checkbox
+			if ($('#avoidzarzakh').prop('checked') && zarzakhSystem && !avoidList.some(s => s.text === "Zarzakh")) {
+				avoidList.push({ id: zarzakhSystem.id, text: zarzakhSystem.text });
+			}
+
 			var options = {
 				fromsystem: fromsystem.selectedValues[0],
 				tosystem: tosystem.selectedValues[0],
-				avoidsystems: avoidsystems.chipsData,
+				avoidsystems: avoidList,
 				shipsize: parseInt($('#shipsize').find(":selected").val()),
 				excludevoc: $('#excludevoc').prop('checked'),
 				excludeeol: $('#excludeeol').prop('checked'),
 				excludelowsec: $('#excludelowsec').prop('checked'),
-				excludenullsec: $('#excludenullsec').prop('checked')
+				excludenullsec: $('#excludenullsec').prop('checked'),
+				excludethera: $('#excludethera').prop('checked')
 			};
 			
 			try {
@@ -250,6 +262,8 @@
 	<div class="switch" style="margin-top: 10px;"><label><input type="checkbox" id="excludeeol"><span class="lever"></span>Exclude EOL</label></div>
 	<div class="switch" style="margin-top: 10px;"><label><input type="checkbox" id="excludelowsec"><span class="lever"></span>Exclude Low-sec</label></div>
 	<div class="switch" style="margin-top: 10px;"><label><input type="checkbox" id="excludenullsec"><span class="lever"></span>Exclude Null-sec</label></div>
+	<div class="switch" style="margin-top: 10px;"><label><input type="checkbox" id="excludethera"><span class="lever"></span> Exclude Thera/Eve-Scout</label></div>
+	<div class="switch" style="margin-top: 10px;"><label><input type="checkbox" id="avoidzarzakh" checked><span class="lever"></span>Exclude Zarzakh</label></div>
 	<div style="margin-top: 20px;">
 		<a class="waves-effect waves-light btn" id="calculate"><i class="material-icons left">route</i>Calculate Path</a>
 		<a class="waves-effect waves-light btn" id="refresh"><i class="material-icons left">sync</i>Refresh Data</a>
@@ -281,3 +295,4 @@
 </div>
 </body>
 </html>
+
