@@ -1,14 +1,14 @@
-# Journey Planner #
+# Journey Planner
 
 Journey Planner can calculate the fastest route between two systems in Eve Online using data from Tripwire (wormhole connections) and Eve Scout (Thera connections).
 
-### Compiling
+## Compiling
 
-```
+```go
 GOOS=js GOARCH=wasm go build -o journey.wasm
 ```
 
-### Deploying
+## Deploying
 
 Place the following files in the root web directory of Tripwire:
 
